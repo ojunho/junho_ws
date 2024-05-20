@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <node pkg="pure_pursuit" type="pure_pursuit.py" name="pure_pursuit" output="screen"/>
+</launch>
