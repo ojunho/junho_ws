@@ -22,13 +22,13 @@ class SlideWindow:
         self.left_cnt = 25
         self.right_cnt = 25
 
-        self.x_previous = 320
+        self.x_previous = 480
 
 
 
     def slidewindow(self, img):
 
-        x_location = 320.0
+        x_location = 320
         # init out_img, height, width        
         out_img = np.dstack((img, img, img)) * 255# deleted
         # out_img = img # added 
@@ -52,13 +52,16 @@ class SlideWindow:
         right_lane_inds = []
 
         win_h1 = 300 
-        win_h2 = 465
-        win_l_w_l = 65 
-        win_l_w_r = 210 # 205
-        win_r_w_l = 430
-        win_r_w_r = 575 # 550
+        win_h2 = 540
+        win_l_w_l = 228 
+        win_l_w_r = 372 # 205
+        win_r_w_l = 710-72
+        win_r_w_r = 710+72 # 550
         
         circle_height = 240
+
+        road_width = 0.415
+        half_road_width = 0.5 * road_width
 
         # first location and segmenation location finder
         # draw line
@@ -130,7 +133,7 @@ class SlideWindow:
                 # draw rectangle
                 # 0.33 is for width of the road
                 cv2.rectangle(out_img, (win_x_low, win_y_low), (win_x_high, win_y_high), (0, 255, 0), 1)
-                cv2.rectangle(out_img, (win_x_low + int(width * 0.55), win_y_low), (win_x_high + int(width * 0.55), win_y_high), (255, 0, 0), 1)
+                cv2.rectangle(out_img, (win_x_low + int(width * road_width), win_y_low), (win_x_high + int(width * road_width), win_y_high), (255, 0, 0), 1)
                 
                 # indicies of dots in nonzerox in one square
                 good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_x_low) & (nonzerox < win_x_high)).nonzero()[0]
@@ -148,7 +151,7 @@ class SlideWindow:
                           
                 if circle_height - 10 <= win_y_low < circle_height + 10:
                     # 0.165 is the half of the road(0.33)
-                    x_location = x_current + int(width * 0.275)
+                    x_location = int(x_current + width * half_road_width)
                     # self.x_previous = x_location
                     cv2.circle(out_img, (x_location, circle_height), 10, (0, 0, 255), 5)
 
@@ -160,7 +163,7 @@ class SlideWindow:
                 win_x_high = x_current + margin
                 
                 
-                cv2.rectangle(out_img, (win_x_low - int(width * 0.55), win_y_low), (win_x_high - int(width * 0.55), win_y_high), (0, 255, 0), 1)
+                cv2.rectangle(out_img, (win_x_low - int(width * road_width), win_y_low), (win_x_high - int(width * road_width), win_y_high), (0, 255, 0), 1)
                 cv2.rectangle(out_img, (win_x_low, win_y_low), (win_x_high, win_y_high), (255, 0, 0), 1)
                 
                 good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_x_low) & (nonzerox < win_x_high)).nonzero()[0]
@@ -174,7 +177,7 @@ class SlideWindow:
                     
                 if circle_height - 10 <= win_y_low < circle_height + 10:
                     # 0.165 is the half of the road(0.33)
-                    x_location = x_current - int(width * 0.275) 
+                    x_location = int(x_current - width * half_road_width) 
                     # self.x_previous = x_location
                     cv2.circle(out_img, (x_location, circle_height), 10, (0, 0, 255), 5)
             
@@ -186,7 +189,7 @@ class SlideWindow:
                 cv2.circle(out_img, (x_location, circle_height), 10, (0, 0, 255), 5)
 
 
-            if x_location == 320:
+            if x_location == 480:
                 x_location = self.x_previous
                 cv2.circle(out_img, (x_location, circle_height), 10, (0, 0, 255), 5)
 

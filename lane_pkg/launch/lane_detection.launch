@@ -1,3 +1,5 @@
 <launch>
+    <!-- Run RViz -->
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find lane_pkg)/rviz/tunnel.rviz" output="screen"/>
     <node pkg="lane_pkg" type="lane_detection.py" name="lane_detection" output="screen"/>
 </launch>

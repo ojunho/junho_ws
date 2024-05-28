@@ -59,11 +59,11 @@
 
 #include <dynamic_reconfigure/server.h>
 
-#include <lidar_object_detection/objectDetectorWonjuConfig.h>
-#include <lidar_object_detection/objectDetectorLatticeConfig.h>
-#include <lidar_object_detection/objectDetectorRotaryConfig.h>
-#include <lidar_object_detection/objectDetectorAccConfig.h>
-#include <lidar_object_detection/objectDetectorDynamicObstacleConfig.h>
+#include <lidar_object_detection/objectDetectorTunnelDynamicConfig.h>
+// #include <lidar_object_detection/objectDetectorLatticeConfig.h>
+// #include <lidar_object_detection/objectDetectorRotaryConfig.h>
+// #include <lidar_object_detection/objectDetectorAccConfig.h>
+// #include <lidar_object_detection/objectDetectorDynamicObstacleConfig.h>
 // #include <lidar_object_detection/objectDetectorStaticConfig.h>
 
 #include "lidar_object_detection/Boundingbox.h"

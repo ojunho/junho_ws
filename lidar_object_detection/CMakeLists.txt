@@ -39,11 +39,7 @@ generate_messages(
 
 
 generate_dynamic_reconfigure_options(
-  cfg/config_wonju.cfg
-  cfg/config_lattice.cfg
-  cfg/config_rotary.cfg
-  cfg/config_acc.cfg
-  cfg/config_dynamic_obstacle.cfg
+  cfg/config_tunnel_dynamic.cfg
 )
 
 
@@ -63,22 +59,6 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_executable(object_detection_wonju src/object_detection_wonju.cpp)
-target_link_libraries(object_detection_wonju ${catkin_LIBRARIES})
-add_dependencies(object_detection_wonju ${PROJECT_NAME}_gencfg)
-
-add_executable(object_detection_lattice src/object_detection_lattice.cpp)
-target_link_libraries(object_detection_lattice ${catkin_LIBRARIES})
-add_dependencies(object_detection_lattice ${PROJECT_NAME}_gencfg)
-
-add_executable(object_detection_rotary src/object_detection_rotary.cpp)
-target_link_libraries(object_detection_rotary ${catkin_LIBRARIES})
-add_dependencies(object_detection_rotary ${PROJECT_NAME}_gencfg)
-
-add_executable(object_detection_acc src/object_detection_acc.cpp)
-target_link_libraries(object_detection_acc ${catkin_LIBRARIES})
-add_dependencies(object_detection_acc ${PROJECT_NAME}_gencfg)
-
-add_executable(object_detection_dynamic_obstacle src/object_detection_dynamic_obstacle.cpp)
-target_link_libraries(object_detection_dynamic_obstacle ${catkin_LIBRARIES})
-add_dependencies(object_detection_dynamic_obstacle ${PROJECT_NAME}_gencfg)
+add_executable(object_detection_tunnel_dynamic src/object_detection_tunnel_dynamic.cpp)
+target_link_libraries(object_detection_tunnel_dynamic ${catkin_LIBRARIES})
+add_dependencies(object_detection_tunnel_dynamic ${PROJECT_NAME}_gencfg)

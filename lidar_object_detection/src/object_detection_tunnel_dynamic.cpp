@@ -35,30 +35,30 @@ lidar_object_detection::ObjectInfo objectInfoMsg;
 lidar_object_detection::PointInfo pointInfoMsg; // 이미지에 옮길 bbox 각 꼭짓점 정보
 
 
-void cfgCallback(lidar_object_detection::objectDetectorWonjuConfig &config_wonju, int32_t level) {
-    xMinROI = config_wonju.xMinROI;
-    xMaxROI = config_wonju.xMaxROI;
-    yMinROI = config_wonju.yMinROI;
-    yMaxROI = config_wonju.yMaxROI;
-    zMinROI = config_wonju.zMinROI;
-    zMaxROI = config_wonju.zMaxROI;
+void cfgCallback(lidar_object_detection::objectDetectorTunnelDynamicConfig &config_tunnel_dynamic, int32_t level) {
+    xMinROI = config_tunnel_dynamic.xMinROI;
+    xMaxROI = config_tunnel_dynamic.xMaxROI;
+    yMinROI = config_tunnel_dynamic.yMinROI;
+    yMaxROI = config_tunnel_dynamic.yMaxROI;
+    zMinROI = config_tunnel_dynamic.zMinROI;
+    zMaxROI = config_tunnel_dynamic.zMaxROI;
 
-    minPoints = config_wonju.minPoints;
-    epsilon = config_wonju.epsilon;
-    minClusterSize = config_wonju.minClusterSize;
-    maxClusterSize = config_wonju.maxClusterSize;
+    minPoints = config_tunnel_dynamic.minPoints;
+    epsilon = config_tunnel_dynamic.epsilon;
+    minClusterSize = config_tunnel_dynamic.minClusterSize;
+    maxClusterSize = config_tunnel_dynamic.maxClusterSize;
 
-    xMinBoundingBox = config_wonju.xMinBoundingBox;
-    xMaxBoundingBox = config_wonju.xMaxBoundingBox;
-    yMinBoundingBox = config_wonju.yMinBoundingBox;
-    yMaxBoundingBox = config_wonju.yMaxBoundingBox;
-    zMinBoundingBox = config_wonju.zMinBoundingBox;
-    zMaxBoundingBox = config_wonju.zMaxBoundingBox;
+    xMinBoundingBox = config_tunnel_dynamic.xMinBoundingBox;
+    xMaxBoundingBox = config_tunnel_dynamic.xMaxBoundingBox;
+    yMinBoundingBox = config_tunnel_dynamic.yMinBoundingBox;
+    yMaxBoundingBox = config_tunnel_dynamic.yMaxBoundingBox;
+    zMinBoundingBox = config_tunnel_dynamic.zMinBoundingBox;
+    zMaxBoundingBox = config_tunnel_dynamic.zMaxBoundingBox;
 
-    leafSize  = config_wonju.leafSize;
+    leafSize  = config_tunnel_dynamic.leafSize;
 
-    maxIterations = config_wonju.maxIterations;
-    distanceThreshold = config_wonju.distanceThreshold;
+    maxIterations = config_tunnel_dynamic.maxIterations;
+    distanceThreshold = config_tunnel_dynamic.distanceThreshold;
 }
 
 pcl::PointCloud<PointT>::Ptr ROI (const sensor_msgs::PointCloud2ConstPtr& input) {
@@ -166,7 +166,7 @@ void cluster(pcl::PointCloud<PointT>::Ptr input) {
         pubCluster.publish(cluster_point);
 
         objectInfoMsg.objectCounts = 0;
-        pubObjectInfo.publish(objectInfoMsg);
+        // pubObjectInfo.publish(objectInfoMsg);
         return;
     }
 
@@ -250,7 +250,7 @@ void cluster(pcl::PointCloud<PointT>::Ptr input) {
     }
 
     objectInfoMsg.objectCounts = cluster_id;
-    // pubObjectInfo.publish(objectInfoMsg);
+    pubObjectInfo.publish(objectInfoMsg);
 
     pointInfoMsg.bboxCounts = cluster_id;
     pubPointInfo.publish(pointInfoMsg);
@@ -325,11 +325,11 @@ void mainCallback(const sensor_msgs::PointCloud2ConstPtr& input) {
 
 int main (int argc, char** argv) {
     // Initialize ROS
-    ros::init (argc, argv, "lidar_object_detection_wonju");
+    ros::init (argc, argv, "lidar_object_detection_tunnel_dynamic");
     ros::NodeHandle nh;
     
-    dynamic_reconfigure::Server<lidar_object_detection::objectDetectorWonjuConfig> server;
-    dynamic_reconfigure::Server<lidar_object_detection::objectDetectorWonjuConfig>::CallbackType f;
+    dynamic_reconfigure::Server<lidar_object_detection::objectDetectorTunnelDynamicConfig> server;
+    dynamic_reconfigure::Server<lidar_object_detection::objectDetectorTunnelDynamicConfig>::CallbackType f;
 
     f = boost::bind(&cfgCallback, _1, _2);
     server.setCallback(f);
