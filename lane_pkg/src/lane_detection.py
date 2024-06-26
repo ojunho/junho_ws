@@ -109,20 +109,28 @@ class  LaneDetection:
         self.fusion_result = []
 
 
+        self.is_dynamic_passed = False
+
+
         #------------------------------------- 동적 장애물 파라미터 -------------------------------------#
         self.obstacle_list = []
 
         self.obstacle_flag = False
         self.brake_cnt = 0
 
+        var_rate = 20
+
         #-----------------------------------------------------------------------------------------------#
-        rate = rospy.Rate(20)  # hz 
+        rate = rospy.Rate(var_rate)  # hz 
         while not rospy.is_shutdown():
 
             if len(self.img)!= 0:
 
                 y, x = self.img.shape[0:2]
-                
+
+
+
+                # -------- 기존의 HSV를 통한 이미지 처리 -------- # 
                 self.img_hsv = cv2.cvtColor(self.img, cv2.COLOR_BGR2HSV)
                 
                 h, s, v = cv2.split(self.img_hsv)
@@ -135,8 +143,8 @@ class  LaneDetection:
                 yellow_range_1 = cv2.inRange(self.img_hsv, yellow_lower_1, yellow_upper_1)
 
                 # 터널 안 노란 선 hsv
-                yellow_lower_2 = np.array([24, 110, 50])
-                yellow_upper_2 = np.array([90, 180, 85])
+                yellow_lower_2 = np.array([24, 100, 35])
+                yellow_upper_2 = np.array([90, 250, 50])
                 yellow_range_2 = cv2.inRange(self.img_hsv, yellow_lower_2, yellow_upper_2)
                 
                 # 터널 밖 흰 선 hsv
@@ -156,6 +164,26 @@ class  LaneDetection:
                 combined_range = cv2.bitwise_or(self.yellow_range, self.white_range)
                 filtered_img = cv2.bitwise_and(self.img, self.img, mask=combined_range)
 
+                # ---------------------------------------------------------------- # 
+
+
+
+
+                # ---------------------------- adaptive threshold 사용하는 법 ------------------------ # 
+                # gray_img = cv2.cvtColor(self.img, cv2.COLOR_BGR2GRAY)  # 그레이스케일 변환
+                    
+                # blurred_image = cv2.GaussianBlur(gray_img, (15, 15), 0)  # 가우시안 블러
+
+                # # 적응형 이진화
+                # adaptive_gaussian = cv2.adaptiveThreshold(blurred_image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                #                                             cv2.THRESH_BINARY, 11, -2.5)
+                # # 캐니 에지 검출
+                # edges = cv2.Canny(adaptive_gaussian, 50, 150)
+
+                # # 형태학적 닫기 연산
+                # kernel = np.ones((4, 4), np.uint8)
+                # closed_image = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
+                # ---------------------------------------------------------------- # 
 
                 left_margin = 330
                 top_margin = 322
@@ -176,22 +204,22 @@ class  LaneDetection:
                 
                 matrix = cv2.getPerspectiveTransform(src_points, dst_points)
                 self.warped_img = cv2.warpPerspective(filtered_img, matrix, [x,y])
+                
 
                 
+                # ------------------------ 기존  HSV 방식에서 다시 살리기 ---------------- # 
                 self.grayed_img = cv2.cvtColor(self.warped_img, cv2.COLOR_BGR2GRAY)
                 
                 # 이미지 이진화
                 self.bin_img = np.zeros_like(self.grayed_img)
 
-                self.bin_img[self.grayed_img > 60] = 1
+                self.bin_img[self.grayed_img > 20] = 1
                 # self.bin_img[self.grayed_img > 150] = 1 #  > 150
                 
                 histogram_y = np.sum(self.bin_img, axis=1)
                 # print(f"histogram_y: {histogram_y}")            
-                if self.x_location == None :
-                    self.x_location = self.last_x_location
-                else :
-                    self.last_x_location = self.x_location
+                
+                # ----------------------------------------------------------------------- #
 
                     
                 
@@ -261,28 +289,49 @@ class  LaneDetection:
                 servo_msg = -radians(angle)
                         
 
-                # 장애물 코드 
-                if len(self.obstacle_list) > 0:
-                    for obstacle in self.obstacle_list:
-                        distance = (obstacle.x ** 2 + obstacle.y ** 2)**0.5
-                        if distance < 11:
-                            self.obstacle_flag = True
-                        else:
-                            self.obstacle_flag = False
-                else:
-                    self.obstacle_flag = False
+                # ---------------------- 동적 장애물 코드 (거리 기반) ---------------------------- #
+                # if len(self.obstacle_list) > 0:
+                #     for obstacle in self.obstacle_list:
+                #         distance = (obstacle.x ** 2 + obstacle.y ** 2)**0.5
+                #         if distance < 11:
+                #             self.obstacle_flag = True
+                #         else:
+                #             self.obstacle_flag = False
+                # else:
+                #     self.obstacle_flag = False
                     
 
-                if self.obstacle_flag == True:
-                    self.brake_cnt += 1
-                    self.publishCtrlCmd(0, servo_msg, 1)
-                    continue
-                
+                # if self.obstacle_flag == True:
+                #     self.brake_cnt += 1
+                #     self.publishCtrlCmd(0, servo_msg, 1)
+                #     continue
+                # ----------------------------------------------------------------------------- #
 
+                # ----------------------- 동적 장애물 (영역 기반)
+                # 장애물 감지 감속
 
+                if len(self.obstacle_list) > 0:
+                    self.AEB = False
+                    for obstacle in self.obstacle_list:
 
+                        if (-3.14 < obstacle.y < 3.14) and (self.is_dynamic_passed == False):
+                            self.brake_cnt += 1
+                            self.publishCtrlCmd(0.0, servo_msg, 1.0)
+                            
+                            print(self.brake_cnt)
+                            if self.brake_cnt > var_rate * 20: 
+                                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                                self.is_dynamic_passed = True
 
+                            self.AEB = True
+                            break
 
+                        elif -8.0 < obstacle.y < 8.0:
+                            motor_msg = 12
+                            # print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+
+                    if self.AEB:
+                        continue
 
 
 
@@ -317,13 +366,12 @@ class  LaneDetection:
                 # cv2.imshow("v", v)
 
                 cv2.imshow("filtered_img", filtered_img)
-                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 
-                # cv2.imshow("self.warped_img", self.warped_img)
+                cv2.imshow("self.warped_img", self.warped_img)
 
-                # cv2.imshow("out_img", self.out_img)
-                # cv2.imshow("grayed_img", self.grayed_img)
-                # cv2.imshow("self.bin_img", self.bin_img)
+                cv2.imshow("out_img", self.out_img)
+                cv2.imshow("grayed_img", self.grayed_img)
+                cv2.imshow("self.bin_img", self.bin_img)
                 cv2.waitKey(1)
 
             rate.sleep()
