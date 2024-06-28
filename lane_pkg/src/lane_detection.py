@@ -53,6 +53,7 @@ class  LaneDetection:
 
         rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.camCB)
         rospy.Subscriber("/bounding_box", MarkerArray, self.objectCB)
+        rospy.Subscriber("/imu", Imu, self.imuCB)
         
         #-------------------------------------------------------------------------------------- #
         self.proj_UTM = Proj(proj='utm', zone = 52, elips='WGS84', preserve_units=False)
@@ -87,7 +88,7 @@ class  LaneDetection:
         self.lidar_obstacle_info = []
         self.gt_heading = 0
         
-        self.heading =0
+        self.heading = 0.0
         self.x_location = 480
         self.last_x_location = 480
 
@@ -121,6 +122,17 @@ class  LaneDetection:
         var_rate = 20
 
         #-----------------------------------------------------------------------------------------------#
+
+
+        self.static_obstacle = False
+        self.static_left_done = False
+
+        self.avg_y_early_detected_obstacle = 0.0
+        self.avg_y_late_detected_obstacle = 0.0
+
+        self.not_detected = 0
+
+
         rate = rospy.Rate(var_rate)  # hz 
         while not rospy.is_shutdown():
 
@@ -137,14 +149,21 @@ class  LaneDetection:
                 
                 # print(type(h))
 
+                
                 # 터널 밖 노란 선 hsv
                 yellow_lower_1 = np.array([15, 75, 180])
                 yellow_upper_1 = np.array([23, 150, 245])
                 yellow_range_1 = cv2.inRange(self.img_hsv, yellow_lower_1, yellow_upper_1)
 
-                # 터널 안 노란 선 hsv
-                yellow_lower_2 = np.array([24, 100, 35])
-                yellow_upper_2 = np.array([90, 250, 50])
+
+                # ------------ 터널 안 노란 선 hsv --------------- # -> 시뮬레이터 버전 이슈 
+                # 버전 24.R1.0
+                yellow_lower_2 = np.array([24, 110, 50])
+                yellow_upper_2 = np.array([90, 180, 85])
+
+                # 버전 v.R4.221231.1
+                # yellow_lower_2 = np.array([24, 100, 35])
+                # yellow_upper_2 = np.array([90, 250, 50])
                 yellow_range_2 = cv2.inRange(self.img_hsv, yellow_lower_2, yellow_upper_2)
                 
                 # 터널 밖 흰 선 hsv
@@ -310,30 +329,70 @@ class  LaneDetection:
                 # ----------------------- 동적 장애물 (영역 기반)
                 # 장애물 감지 감속
 
+                
+
                 if len(self.obstacle_list) > 0:
+                    self.not_detected = 0
                     self.AEB = False
                     for obstacle in self.obstacle_list:
 
                         if (-3.14 < obstacle.y < 3.14) and (self.is_dynamic_passed == False):
+                            
+                            if 1 <= self.brake_cnt <= 5:
+                                self.avg_y_early_detected_obstacle += obstacle.y
+                            elif 395 <= self.brake_cnt <= 399:
+                                self.avg_y_late_detected_obstacle += obstacle.y
+
                             self.brake_cnt += 1
                             self.publishCtrlCmd(0.0, servo_msg, 1.0)
                             
-                            print(self.brake_cnt)
                             if self.brake_cnt > var_rate * 20: 
-                                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                                self.is_dynamic_passed = True
+                                delta_y_obstacle = abs((self.avg_y_early_detected_obstacle/5) - (self.avg_y_late_detected_obstacle/5))
+                                # print("delta_y_obstacle", delta_y_obstacle)
+
+                                if delta_y_obstacle < 3.5: # 정적
+                                    self.static_obstacle = True
+                                
+                                else: # 동적이 이상하게 서있는것
+                                    self.is_dynamic_passed = True
 
                             self.AEB = True
                             break
-
+                        
                         elif -8.0 < obstacle.y < 8.0:
                             motor_msg = 12
-                            # print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+                            
 
-                    if self.AEB:
+
+                    if (self.AEB == True) and (self.static_obstacle == False):
                         continue
+                else:
+                    self.not_detected += 1
+                    self.brake_cnt = 0
+                    self.avg_y_early_detected_obstacle = 0.0
+                    self.avg_y_late_detected_obstacle = 0.0
+
+                if self.not_detected > 10:
+                    self.is_dynamic_passed = False
 
 
+                # 정적 장애물 
+                # -115, -150
+                if self.static_obstacle == True:
+                    while True:
+
+                        # 종료조건
+                        if (-160 <= self.heading <= -150) and (self.static_left_done == True): 
+                            self.static_obstacle = False
+                            break
+
+                        if self.heading >= -105:
+                            self.static_left_done = True
+
+                        if self.static_left_done == False:
+                            self.publishCtrlCmd(15.0, -radians(-24), 0.0)
+                        else:
+                            self.publishCtrlCmd(15.0, -radians(10), 0.0)
 
 
 
@@ -357,7 +416,9 @@ class  LaneDetection:
                 
 
                 # print("self.x_location", self.x_location)
-
+                # print("heading: ", self.heading)
+                print("self.is_dynamic_passed", self.is_dynamic_passed)
+                print("self.brake_cnt", self.brake_cnt)
 
                 # cv2.imshow("self.img", self.img)
                 # cv2.imshow("self.img_hsv", self.img_hsv)
@@ -365,13 +426,13 @@ class  LaneDetection:
                 # cv2.imshow("s", s)
                 # cv2.imshow("v", v)
 
-                cv2.imshow("filtered_img", filtered_img)
+                # cv2.imshow("filtered_img", filtered_img)
 
-                cv2.imshow("self.warped_img", self.warped_img)
+                # cv2.imshow("self.warped_img", self.warped_img)
 
                 cv2.imshow("out_img", self.out_img)
-                cv2.imshow("grayed_img", self.grayed_img)
-                cv2.imshow("self.bin_img", self.bin_img)
+                # cv2.imshow("grayed_img", self.grayed_img)
+                # cv2.imshow("self.bin_img", self.bin_img)
                 cv2.waitKey(1)
 
             rate.sleep()
@@ -384,6 +445,15 @@ class  LaneDetection:
         for marker in msg.markers:
             obstacle = Obstacle(marker.pose.position.x, marker.pose.position.y, marker.pose.position.z)
             self.obstacle_list.append(obstacle)
+    
+    def imuCB(self, msg):
+        # 쿼터니언을 사용하여 roll, pitch, yaw 계산
+        orientation_q = msg.orientation
+        orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
+        (roll, pitch, yaw) = tf.transformations.euler_from_quaternion(orientation_list)
+        self.heading = yaw * 180.0 / pi
+    
+
 
     def publishCtrlCmd(self, motor_msg, servo_msg, brake_msg):
         self.ctrl_cmd_msg.velocity = motor_msg
