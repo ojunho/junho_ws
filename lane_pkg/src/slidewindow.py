@@ -60,7 +60,7 @@ class SlideWindow:
         
         circle_height = 240
 
-        road_width = 0.415
+        road_width = 0.415 # 0.415
         half_road_width = 0.5 * road_width
 
         # first location and segmenation location finder

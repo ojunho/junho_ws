@@ -20,12 +20,16 @@ import tf
 import time
 import cv2
 import numpy as np
+import math
 
 class Obstacle:
     def __init__(self, x, y, z):
         self.x = x
         self.y = y
         self.z = z
+
+    def distance(self):
+        return math.sqrt(self.x**2 + self.y**2 + self.z**2)
 
 
 class PID():
@@ -140,6 +144,8 @@ class  LaneDetection:
 
                 y, x = self.img.shape[0:2]
 
+                
+
 
 
                 # -------- 기존의 HSV를 통한 이미지 처리 -------- # 
@@ -223,11 +229,14 @@ class  LaneDetection:
                 
                 matrix = cv2.getPerspectiveTransform(src_points, dst_points)
                 self.warped_img = cv2.warpPerspective(filtered_img, matrix, [x,y])
+
+                # 차선 붙어가기 -> 바로 시점이동
+                translated_img = self.translate_image(self.warped_img, tx=100, ty=0)
                 
 
                 
                 # ------------------------ 기존  HSV 방식에서 다시 살리기 ---------------- # 
-                self.grayed_img = cv2.cvtColor(self.warped_img, cv2.COLOR_BGR2GRAY)
+                self.grayed_img = cv2.cvtColor(translated_img, cv2.COLOR_BGR2GRAY)
                 
                 # 이미지 이진화
                 self.bin_img = np.zeros_like(self.grayed_img)
@@ -332,40 +341,47 @@ class  LaneDetection:
                 
 
                 if len(self.obstacle_list) > 0:
+
+                    obstacle = self.obstacle_list[0]
+
                     self.not_detected = 0
                     self.AEB = False
-                    for obstacle in self.obstacle_list:
 
-                        if (-3.14 < obstacle.y < 3.14) and (self.is_dynamic_passed == False):
-                            
-                            if 1 <= self.brake_cnt <= 5:
-                                self.avg_y_early_detected_obstacle += obstacle.y
-                            elif 395 <= self.brake_cnt <= 399:
-                                self.avg_y_late_detected_obstacle += obstacle.y
-
-                            self.brake_cnt += 1
-                            self.publishCtrlCmd(0.0, servo_msg, 1.0)
-                            
-                            if self.brake_cnt > var_rate * 20: 
-                                delta_y_obstacle = abs((self.avg_y_early_detected_obstacle/5) - (self.avg_y_late_detected_obstacle/5))
-                                # print("delta_y_obstacle", delta_y_obstacle)
-
-                                if delta_y_obstacle < 3.5: # 정적
-                                    self.static_obstacle = True
-                                
-                                else: # 동적이 이상하게 서있는것
-                                    self.is_dynamic_passed = True
-
-                            self.AEB = True
-                            break
+                    if (-3.14 < obstacle.y < 3.14) and (self.is_dynamic_passed == False):
                         
-                        elif -8.0 < obstacle.y < 8.0:
-                            motor_msg = 12
+                        if 1 <= self.brake_cnt <= 5:
+                            self.avg_y_early_detected_obstacle += obstacle.y
+                        elif 395 <= self.brake_cnt <= 399:
+                            self.avg_y_late_detected_obstacle += obstacle.y
+
+                        self.brake_cnt += 1
+                        self.publishCtrlCmd(0.0, servo_msg, 1.0)
+                        
+                        if self.brake_cnt > var_rate * 20: 
+                            delta_y_obstacle = abs((self.avg_y_early_detected_obstacle/5) - (self.avg_y_late_detected_obstacle/5))
+
+                            print("인지 초기단계 y값 평균: ", self.avg_y_early_detected_obstacle/5)
+                            print("인지 후반단계 y값 편균: ", self.avg_y_late_detected_obstacle/5)
+                            print("그 차이: ", delta_y_obstacle)
+
+                            if delta_y_obstacle < 1.0: # 정적
+                                self.static_obstacle = True
+                            
+                            else: # 동적이 이상하게 서있는것
+                                self.is_dynamic_passed = True
+
+                        self.AEB = True
+                        
+                    
+                    elif -8.0 < obstacle.y < 8.0:
+                        motor_msg = 12
                             
 
 
                     if (self.AEB == True) and (self.static_obstacle == False):
                         continue
+
+
                 else:
                     self.not_detected += 1
                     self.brake_cnt = 0
@@ -437,6 +453,24 @@ class  LaneDetection:
 
             rate.sleep()
 
+    def translate_image(self, image, tx, ty):
+        """
+        이미지 평행이동 함수
+        :param image: 입력 이미지
+        :param tx: x축 평행이동 거리
+        :param ty: y축 평행이동 거리
+        :return: 평행이동된 이미지
+        """
+        rows, cols = image.shape[:2]
+        
+        # 평행이동 행렬 생성
+        translation_matrix = np.float32([[1, 0, tx], [0, 1, ty]])
+        
+        # 이미지 평행이동
+        translated_image = cv2.warpAffine(image, translation_matrix, (cols, rows))
+        
+        return translated_image
+
     def camCB(self, msg):
         self.img = self.bridge.compressed_imgmsg_to_cv2(msg)
 
@@ -445,6 +479,9 @@ class  LaneDetection:
         for marker in msg.markers:
             obstacle = Obstacle(marker.pose.position.x, marker.pose.position.y, marker.pose.position.z)
             self.obstacle_list.append(obstacle)
+        
+        # 장애물을 거리순으로 정렬
+        self.obstacle_list.sort(key=lambda obstacle: obstacle.distance())
     
     def imuCB(self, msg):
         # 쿼터니언을 사용하여 roll, pitch, yaw 계산
