@@ -53,7 +53,7 @@ class  LaneDetection:
         rospy.init_node("lane_detection_node")
 
         self.ctrl_cmd_pub = rospy.Publisher('/ctrl_cmd', CtrlCmd, queue_size=1)
-        self.stopline_flag_pub = rospy.Publisher('/stopline_flag', Bool, queue_size=1)
+        # self.tunnel_static_roi_flag_pub = rospy.Publisher('/tunnel_static_roi_flag', Bool, queue_size=1)
 
         rospy.Subscriber("/image_jpeg/compressed", CompressedImage, self.camCB)
         rospy.Subscriber("/bounding_box", MarkerArray, self.objectCB)
@@ -135,6 +135,12 @@ class  LaneDetection:
         self.avg_y_late_detected_obstacle = 0.0
 
         self.not_detected = 0
+
+        self.tunnel_static_flag = 0
+        self.passed_half_tunnel_static_keeping = False
+
+        self.tunnel_static_roi_flag = False
+        tunnel_statlc_roi_check_arr = [0, 0, 0]
 
 
         rate = rospy.Rate(var_rate)  # hz 
@@ -231,7 +237,20 @@ class  LaneDetection:
                 self.warped_img = cv2.warpPerspective(filtered_img, matrix, [x,y])
 
                 # 차선 붙어가기 -> 바로 시점이동
-                translated_img = self.translate_image(self.warped_img, tx=100, ty=0)
+                # flag: 
+                # 0-> 중앙주행
+                # 1-> 오른쪽붙기
+                # 2-> 왼쪽붙기
+
+                # 강제 왼쪽으로 주행
+
+                if self.tunnel_static_flag == 1:
+                    translated_img = self.translate_image(self.warped_img, tx=200, ty=0)
+                elif self.tunnel_static_flag == 2:
+                    translated_img = self.translate_image(self.warped_img, tx=-200, ty=0)
+                else: # 0
+                    translated_img = self.warped_img
+
                 
 
                 
@@ -296,7 +315,7 @@ class  LaneDetection:
                 #         self.is_static = False
                 #     #--------------------------------------------------------------------------------------------------#
 
-                self.out_img, self.x_location, _ = self.slidewindow.slidewindow(self.bin_img)
+                self.out_img, self.x_location, _ = self.slidewindow.slidewindow(self.bin_img, self.tunnel_static_flag)
                 pid = PID(0.015, 0.003, 0.010)
 
                 if self.x_location == None :
@@ -311,7 +330,7 @@ class  LaneDetection:
                 self.prev_center_index = self.center_index
                 self.center_index = self.x_location
 
-                motor_msg = 25
+                motor_msg = 5
 
                 angle = pid.pid_control(self.center_index - 480) 
                 servo_msg = -radians(angle)
@@ -335,95 +354,124 @@ class  LaneDetection:
                 #     continue
                 # ----------------------------------------------------------------------------- #
 
-                # ----------------------- 동적 장애물 (영역 기반)
+
+
+                # ----------------------- 동적 장애물 (영역 기반) ---------------------------------- #
                 # 장애물 감지 감속
+                # if len(self.obstacle_list) > 0:
 
-                
+                #     obstacle = self.obstacle_list[0]
 
-                if len(self.obstacle_list) > 0:
+                #     self.not_detected = 0
+                #     self.AEB = False
 
-                    obstacle = self.obstacle_list[0]
-
-                    self.not_detected = 0
-                    self.AEB = False
-
-                    if (-3.14 < obstacle.y < 3.14) and (self.is_dynamic_passed == False):
+                #     if (-3.14 < obstacle.y < 3.14) and (self.is_dynamic_passed == False):
                         
-                        if 1 <= self.brake_cnt <= 5:
-                            self.avg_y_early_detected_obstacle += obstacle.y
-                        elif 395 <= self.brake_cnt <= 399:
-                            self.avg_y_late_detected_obstacle += obstacle.y
+                #         if 1 <= self.brake_cnt <= 5:
+                #             self.avg_y_early_detected_obstacle += obstacle.y
+                #         elif 395 <= self.brake_cnt <= 399:
+                #             self.avg_y_late_detected_obstacle += obstacle.y
 
-                        self.brake_cnt += 1
-                        self.publishCtrlCmd(0.0, servo_msg, 1.0)
+                #         self.brake_cnt += 1
+                #         self.publishCtrlCmd(0.0, servo_msg, 1.0)
                         
-                        if self.brake_cnt > var_rate * 20: 
-                            delta_y_obstacle = abs((self.avg_y_early_detected_obstacle/5) - (self.avg_y_late_detected_obstacle/5))
+                #         if self.brake_cnt > var_rate * 20: 
+                #             delta_y_obstacle = abs((self.avg_y_early_detected_obstacle/5) - (self.avg_y_late_detected_obstacle/5))
 
-                            print("인지 초기단계 y값 평균: ", self.avg_y_early_detected_obstacle/5)
-                            print("인지 후반단계 y값 편균: ", self.avg_y_late_detected_obstacle/5)
-                            print("그 차이: ", delta_y_obstacle)
+                #             print("인지 초기단계 y값 평균: ", self.avg_y_early_detected_obstacle/5)
+                #             print("인지 후반단계 y값 편균: ", self.avg_y_late_detected_obstacle/5)
+                #             print("그 차이: ", delta_y_obstacle)
 
-                            if delta_y_obstacle < 1.0: # 정적
-                                self.static_obstacle = True
+                #             if delta_y_obstacle < 1.0: # 정적
+                #                 self.static_obstacle = True
                             
-                            else: # 동적이 이상하게 서있는것
-                                self.is_dynamic_passed = True
+                #             else: # 동적이 이상하게 서있는것
+                #                 self.is_dynamic_passed = True
 
-                        self.AEB = True
+                #         self.AEB = True
                         
                     
-                    elif -8.0 < obstacle.y < 8.0:
-                        motor_msg = 12
+                #     elif -8.0 < obstacle.y < 8.0:
+                #         motor_msg = 12
                             
 
 
-                    if (self.AEB == True) and (self.static_obstacle == False):
-                        continue
+                #     if (self.AEB == True) and (self.static_obstacle == False):
+                #         continue
 
 
-                else:
-                    self.not_detected += 1
-                    self.brake_cnt = 0
-                    self.avg_y_early_detected_obstacle = 0.0
-                    self.avg_y_late_detected_obstacle = 0.0
+                # else:
+                #     self.not_detected += 1
+                #     self.brake_cnt = 0
+                #     self.avg_y_early_detected_obstacle = 0.0
+                #     self.avg_y_late_detected_obstacle = 0.0
 
-                if self.not_detected > 10:
-                    self.is_dynamic_passed = False
+                # if self.not_detected > 10:
+                #     self.is_dynamic_passed = False
+                # -------------------------------------------------------------------------------- # 
 
 
-                # 정적 장애물 
-                # -115, -150
-                if self.static_obstacle == True:
-                    while True:
 
-                        # 종료조건
-                        if (-160 <= self.heading <= -150) and (self.static_left_done == True): 
-                            self.static_obstacle = False
-                            break
+                if len(self.obstacle_list) > 0:
+                    # print("장애물 배열: ", self.obstacle_list)
+                    # -------------------------------- 터널 정적 PE-Drum s자 회피 --------------------------- # 
+                    tunnel_statlc_roi_check_arr = [0, 0, 0]
+                    for obstacle in self.obstacle_list:
 
-                        if self.heading >= -105:
-                            self.static_left_done = True
+                        # 전방 체크
+                        if (0 <= obstacle.x < 7.0) and (-1.2 <= obstacle.y <= 1.2):
+                            tunnel_statlc_roi_check_arr[1] = 1
+                        # 왼쪽뒤 체크
+                        if (-6 <= obstacle.x <= -0.5) and (0 < obstacle.y <= 3.5):
+                            tunnel_statlc_roi_check_arr[0] = 1
+                        # 오른쪽뒤 체크
+                        if (-6 <= obstacle.x <= -0.5) and (-3.5 <= obstacle.y <= 0):
+                            tunnel_statlc_roi_check_arr[2] = 1
+                    
 
-                        if self.static_left_done == False:
-                            self.publishCtrlCmd(15.0, -radians(-24), 0.0)
+                    #000 -> 아무것도 없음: 실제 없거나(오인지)
+                    # 001 -> 종료조건
+                    # 010 -> 전방만 -> 처음상황, 오른쪽 붙기
+                    #011 -> 오인지
+                    # 100 -> 꺾을때뿐 -> 왼쪽붙기 플래그 유지
+                    #101 -> 오인지일가능성제일높지만 혹시나 꺾을때 있을 수도 
+                    # 110 ->
+                    # 111 -> 
+
+                    # tunnel_statlc_roi_check_arr
+                    # [n, n, n] -> [왼쪽뒤, 전방, 오른쪽뒤]
+                    # 정적 장애물 
+                    if (tunnel_statlc_roi_check_arr == [1, 1, 0]) or (tunnel_statlc_roi_check_arr == [1, 1, 1]) or (tunnel_statlc_roi_check_arr == [1, 0, 0]):
+                        
+
+                        # if (tunnel_statlc_roi_check_arr == [1, 0, 0]):
+                        # if tunnel_statlc_roi_check_arr[1] == 0:
+                        #     self.tunnel_static_roi_flag = False
+                        # else:
+                        #     self.tunnel_static_roi_flag = True
+                        
+                        self.passed_half_tunnel_static_keeping = True
+                        self.tunnel_static_flag = 2
+
+                    elif tunnel_statlc_roi_check_arr == [0, 0, 1]:
+                        self.tunnel_static_flag = 0
+                        self.passed_half_tunnel_static_keeping = False
+                    elif tunnel_statlc_roi_check_arr == [0, 1, 0]:
+                        self.tunnel_static_flag = 1
+
+                    # 인지가 없는부분
+                    # 1. 진짜 없는 정상주행
+                    # 2. 인지가 중간에 끊긴경우 -> 첫번째통과플래그를 통해서 강제로 왼쪽으로 유지
+                    else: # [0, 0, 0]
+                        if self.passed_half_tunnel_static_keeping == True:
+                            self.tunnel_static_flag = 2
                         else:
-                            self.publishCtrlCmd(15.0, -radians(10), 0.0)
+                            self.tunnel_static_flag = 0
+                    # ----------------------------------------------------------------------------------- # 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+                print("인지 배열: ", tunnel_statlc_roi_check_arr)
+                print("선택 방향: ", self.tunnel_static_flag)
 
 
                 self.publishCtrlCmd(motor_msg, servo_msg, 0)
@@ -433,8 +481,8 @@ class  LaneDetection:
 
                 # print("self.x_location", self.x_location)
                 # print("heading: ", self.heading)
-                print("self.is_dynamic_passed", self.is_dynamic_passed)
-                print("self.brake_cnt", self.brake_cnt)
+                # print("self.is_dynamic_passed", self.is_dynamic_passed)
+                # print("self.brake_cnt", self.brake_cnt)
 
                 # cv2.imshow("self.img", self.img)
                 # cv2.imshow("self.img_hsv", self.img_hsv)

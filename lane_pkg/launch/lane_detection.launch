@@ -2,5 +2,5 @@
     <!-- Run RViz -->
     <include file="$(find lidar_object_detection)/launch/object_detection_tunnel_dynamic.launch" />
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find lane_pkg)/rviz/tunnel.rviz" output="screen"/>
-    <node pkg="lane_pkg" type="lane_detection.py" name="lane_detection" output="screen"/>
+    <node pkg="lane_pkg" type="lane_detection_sungjuoh.py" name="lane_detection" output="screen"/>
 </launch>

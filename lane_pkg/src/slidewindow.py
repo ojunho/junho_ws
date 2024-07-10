@@ -26,7 +26,7 @@ class SlideWindow:
 
 
 
-    def slidewindow(self, img):
+    def slidewindow(self, img, roi_flag):
 
         x_location = 320
         # init out_img, height, width        
@@ -53,10 +53,30 @@ class SlideWindow:
 
         win_h1 = 300 
         win_h2 = 540
-        win_l_w_l = 228 
-        win_l_w_r = 372 # 205
-        win_r_w_l = 710-72
-        win_r_w_r = 710+72 # 550
+
+
+
+        # if roi_flag == 2:
+        #     # ------------ 정적장애물 회피시 강제 roi ------- # 
+        #     # 50
+        #     win_l_w_l = 0
+        #     win_l_w_r = 372
+        #     # 460
+        #     win_r_w_l = 0
+        #     win_r_w_r = 0
+        #     # ------------------------------------------ #
+        
+        # else:
+        # ------------원래 roi ------------ #
+        # win_l_w_l = 228 
+        # win_l_w_r = 372 # 205
+        # win_r_w_l = 710-72
+        # win_r_w_r = 710+72 # 550
+        # -------------------------------- #
+        win_l_w_l = 300-120
+        win_l_w_r = 300+120 # 205
+        win_r_w_l = 710-120
+        win_r_w_r = 710+120 # 550
         
         circle_height = 240
 
