@@ -22,7 +22,7 @@ class SlideWindow:
         self.left_cnt = 25
         self.right_cnt = 25
 
-        self.x_previous = 480
+        self.x_previous = 320
 
 
 
@@ -51,8 +51,8 @@ class SlideWindow:
         left_lane_inds = []
         right_lane_inds = []
 
-        win_h1 = 300 
-        win_h2 = 540
+        win_h1 = 380 
+        win_h2 = 480
 
 
 
@@ -73,14 +73,21 @@ class SlideWindow:
         # win_r_w_l = 710-72
         # win_r_w_r = 710+72 # 550
         # -------------------------------- #
-        win_l_w_l = 300-120
-        win_l_w_r = 300+120 # 205
-        win_r_w_l = 710-120
-        win_r_w_r = 710+120 # 550
+        # win_l_w_l = 300-120
+        # win_l_w_r = 300+120 # 205
+        # win_r_w_l = 710-120
+        # win_r_w_r = 710+120 # 550
+
+
+        # FMTC 640 480
+        win_l_w_l = 185 - 90
+        win_l_w_r = 185 + 90
+        win_r_w_l = 455 - 90
+        win_r_w_r = 455 + 90
         
         circle_height = 240
 
-        road_width = 0.415 # 0.415
+        road_width = 0.375 # 0.415
         half_road_width = 0.5 * road_width
 
         # first location and segmenation location finder
@@ -209,7 +216,7 @@ class SlideWindow:
                 cv2.circle(out_img, (x_location, circle_height), 10, (0, 0, 255), 5)
 
 
-            if x_location == 480:
+            if x_location == 320:
                 x_location = self.x_previous
                 cv2.circle(out_img, (x_location, circle_height), 10, (0, 0, 255), 5)
 

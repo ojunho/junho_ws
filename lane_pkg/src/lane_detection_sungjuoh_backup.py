@@ -147,10 +147,14 @@ class LaneDetection:
         self.tunnel_static_half_flag = False
 
         # 트랙바 초기값 설정
-        self.lower_yellow = np.array([95, 51, 101])
-        self.upper_yellow = np.array([104, 255, 255])
-        self.lower_white = np.array([80, 0, 158])
-        self.upper_white = np.array([132, 16, 255])
+        self.yellow_lower_1 = np.array([15, 75, 180])
+        self.yellow_upper_1 = np.array([23, 150, 245])
+        self.yellow_lower_2 = np.array([24, 110, 50])
+        self.yellow_upper_2 = np.array([90, 180, 85])
+        self.white_lower_bound1 = np.array([10, 27, 210])
+        self.white_upper_bound1 = np.array([25, 45, 255])
+        self.white_lower_bound2 = np.array([90, 40, 60])
+        self.white_upper_bound2 = np.array([110, 70, 90])
 
         # 트랙바 창 생성
         cv2.namedWindow("Trackbars")
@@ -170,23 +174,62 @@ class LaneDetection:
 
                 # 트랙바로부터 HSV 값 읽기
                 self.read_trackbar_values()
+                
+                
 
-                # 노란색 및 흰색 마스크 생성
-                mask_yellow = cv2.inRange(self.img_hsv, self.lower_yellow, self.upper_yellow)
-                mask_white = cv2.inRange(self.img_hsv, self.lower_white, self.upper_white)
-                filtered_yellow = cv2.bitwise_and(self.img, self.img, mask=mask_yellow)
-                filtered_white = cv2.bitwise_and(self.img, self.img, mask=mask_white)
-                masks = cv2.bitwise_or(mask_yellow, mask_white)
-                filtered_img = cv2.bitwise_and(self.img, self.img, mask=masks)
+                # # 터널 밖 노란 선 hsv
+                # yellow_lower_1 = np.array([15, 75, 180])
+                # yellow_upper_1 = np.array([23, 150, 245])
+                # yellow_range_1 = cv2.inRange(self.img_hsv, yellow_lower_1, yellow_upper_1)
+
+                # # 터널 안 노란 선 hsv
+                # yellow_lower_2 = np.array([24, 110, 50])
+                # yellow_upper_2 = np.array([90, 180, 85])
+                # yellow_range_2 = cv2.inRange(self.img_hsv, yellow_lower_2, yellow_upper_2)
+                
+                # # 터널 밖 흰 선 hsv
+                # white_lower_bound1 = np.array([10, 27, 210])
+                # white_upper_bound1 = np.array([25, 45, 255])
+                # white_mask1 = cv2.inRange(self.img_hsv, white_lower_bound1, white_upper_bound1)
+                
+                # # 터널 안 흰 선 hsv
+                # white_lower_bound2 = np.array([90, 40, 60])
+                # white_upper_bound2 = np.array([110, 70, 90])
+                # white_mask2 = cv2.inRange(self.img_hsv, white_lower_bound2, white_upper_bound2)
+
+                # self.yellow_range = cv2.bitwise_or(yellow_range_1, yellow_range_2)
+                # self.white_range = cv2.bitwise_or(white_mask1, white_mask2)
+                
+                # combined_range = cv2.bitwise_or(self.yellow_range, self.white_range)
+                # filtered_img = cv2.bitwise_and(self.img, self.img, mask=combined_range)
+
+                # 터널 밖 노란 선 hsv
+                yellow_range_1 = cv2.inRange(self.img_hsv, self.yellow_lower_1, self.yellow_upper_1)
+
+                # 터널 안 노란 선 hsv
+                yellow_range_2 = cv2.inRange(self.img_hsv, self.yellow_lower_2, self.yellow_upper_2)
+                
+                # 터널 밖 흰 선 hsv
+                white_mask1 = cv2.inRange(self.img_hsv, self.white_lower_bound1, self.white_upper_bound1)
+                
+                # 터널 안 흰 선 hsv
+                white_mask2 = cv2.inRange(self.img_hsv, self.white_lower_bound2, self.white_upper_bound2)
+
+                self.yellow_range = cv2.bitwise_or(yellow_range_1, yellow_range_2)
+                self.white_range = cv2.bitwise_or(white_mask1, white_mask2)
+                
+                combined_range = cv2.bitwise_or(self.yellow_range, self.white_range)
+                filtered_img = cv2.bitwise_and(self.img, self.img, mask=combined_range)
+
 
                 # ---------------------------------------------------------------- #
 
-                left_margin = 180
-                top_margin = 256
-                src_point1 = [0, 413]      # 왼쪽 아래
+                left_margin = 330
+                top_margin = 322
+                src_point1 = [0, 444]      # 왼쪽 아래
                 src_point2 = [left_margin, top_margin]
                 src_point3 = [x-left_margin, top_margin]
-                src_point4 = [x , 413]  
+                src_point4 = [x , 444]  
 
                 src_points = np.float32([src_point1, src_point2, src_point3, src_point4])
                 
@@ -201,11 +244,9 @@ class LaneDetection:
                 self.warped_img = cv2.warpPerspective(filtered_img, matrix, [x, y])
 
                 if self.tunnel_static_half_flag == False:
-                    translated_img = self.translate_image(self.warped_img, tx=90, ty=0)
+                    translated_img = self.translate_image(self.warped_img, tx=100, ty=0)
                 elif self.tunnel_static_half_flag == True:
                     translated_img = self.warped_img
-
-
                 # else:  # 0
                 #     translated_img = self.warped_img
 
@@ -220,7 +261,7 @@ class LaneDetection:
                 histogram_y = np.sum(self.bin_img, axis=1)
 
                 self.out_img, self.x_location, _ = self.slidewindow.slidewindow(self.bin_img, self.tunnel_static_flag)
-                pid = PID(0.2, 0.1, 0.03)
+                pid = PID(0.015, 0.003, 0.010)
 
                 if self.x_location is None:
                     self.x_location = self.last_x_location
@@ -239,7 +280,7 @@ class LaneDetection:
 
                 angle = pid.pid_control(self.center_index - 320)
                 # print("angle", angle)
-                # servo_msg = -radians(angle)
+                servo_msg = -radians(angle)
 
 
                 tunnel_statlc_roi_check_arr = [0, 0]
@@ -266,13 +307,13 @@ class LaneDetection:
 
                         if self.tunnel_static_half_flag == True:
                             
-                            if (-0.7 <= obstacle.x <= 5.0) and (-3.0 <= obstacle.y <= 0.5):
+                            if (-0.5 <= obstacle.x <= 5.0) and (-3.0 <= obstacle.y <= 0.5):
                                 last_tunnel_static_obstacle = obstacle
 
                                 #장애물과 라이다의 상대각도 계산
                                 theta = math.degrees(math.atan2(last_tunnel_static_obstacle.y, last_tunnel_static_obstacle.x))
                                 self.theta_list.append(theta)
-                                # print("Theta: ", theta)
+                                print("Theta: ", theta)
                     
                 # 터널 내 장애물 회피 각도 조정
                 for theta in self.theta_list:
@@ -290,25 +331,30 @@ class LaneDetection:
                         # angle = 0.0027 * (theta**2) - 0.25 * theta - 28.2
 
                         # 4미터 되는 함수 
-                        angle = 0.0028 * (theta**2) - 0.42 * theta - 30.0
-                        # servo_msg = -radians(angle)
-                        # print("@@@@@@@@@@@@@@@@@@@@@@@")
+                        angle = 0.0027 * (theta**2) - 0.29 * theta - 28.2
+                        servo_msg = -radians(angle)
+                        print("@@@@@@@@@@@@@@@@@@@@@@@")
                         break
 
                 # print("인지 배열: ", tunnel_statlc_roi_check_arr)
                 # print("선택 방향: ", self.tunnel_static_flag)
 
                 # print("servo_msg: ", servo_msg)
-                self.publishCtrlCmd(motor_msg, angle, 0)
+                # self.publishCtrlCmd(motor_msg, servo_msg, 0)
 
+                cv2.imshow("self.img", self.img)
+                cv2.imshow("self.img_hsv", self.img_hsv)
+                cv2.imshow("h", h)
+                cv2.imshow("s", s)
+                cv2.imshow("v", v)
 
-                cv2.imshow('self.img', self.img)
-                cv2.imshow("Yellow Mask", filtered_yellow)
-                cv2.imshow("White Mask", filtered_white)
-                cv2.imshow("Filtered Image", filtered_img)
-                cv2.imshow("Warped Image", self.warped_img)
-                cv2.imshow("Output Image", self.out_img)
+                cv2.imshow("filtered_img", filtered_img)
 
+                cv2.imshow("self.warped_img", self.warped_img)
+
+                cv2.imshow("out_img", self.out_img)
+                # cv2.imshow("grayed_img", self.grayed_img)
+                # cv2.imshow("self.bin_img", self.bin_img)
                 cv2.waitKey(1)
 
             rate.sleep()
@@ -330,38 +376,66 @@ class LaneDetection:
         translated_image = cv2.warpAffine(image, translation_matrix, (cols, rows))
         
         return translated_image
-
+    
     def create_trackbars(self):
         # 노란색 HSV 범위 트랙바
-        cv2.createTrackbar("Yellow Lower H", "Trackbars", self.lower_yellow[0], 180, self.nothing)
-        cv2.createTrackbar("Yellow Lower S", "Trackbars", self.lower_yellow[1], 255, self.nothing)
-        cv2.createTrackbar("Yellow Lower V", "Trackbars", self.lower_yellow[2], 255, self.nothing)
-        cv2.createTrackbar("Yellow Upper H", "Trackbars", self.upper_yellow[0], 180, self.nothing)
-        cv2.createTrackbar("Yellow Upper S", "Trackbars", self.upper_yellow[1], 255, self.nothing)
-        cv2.createTrackbar("Yellow Upper V", "Trackbars", self.upper_yellow[2], 255, self.nothing)
+        cv2.createTrackbar("Yellow Lower H1", "Trackbars", self.yellow_lower_1[0], 180, self.nothing)
+        cv2.createTrackbar("Yellow Lower S1", "Trackbars", self.yellow_lower_1[1], 255, self.nothing)
+        cv2.createTrackbar("Yellow Lower V1", "Trackbars", self.yellow_lower_1[2], 255, self.nothing)
+        cv2.createTrackbar("Yellow Upper H1", "Trackbars", self.yellow_upper_1[0], 180, self.nothing)
+        cv2.createTrackbar("Yellow Upper S1", "Trackbars", self.yellow_upper_1[1], 255, self.nothing)
+        cv2.createTrackbar("Yellow Upper V1", "Trackbars", self.yellow_upper_1[2], 255, self.nothing)
+
+        cv2.createTrackbar("Yellow Lower H2", "Trackbars", self.yellow_lower_2[0], 180, self.nothing)
+        cv2.createTrackbar("Yellow Lower S2", "Trackbars", self.yellow_lower_2[1], 255, self.nothing)
+        cv2.createTrackbar("Yellow Lower V2", "Trackbars", self.yellow_lower_2[2], 255, self.nothing)
+        cv2.createTrackbar("Yellow Upper H2", "Trackbars", self.yellow_upper_2[0], 180, self.nothing)
+        cv2.createTrackbar("Yellow Upper S2", "Trackbars", self.yellow_upper_2[1], 255, self.nothing)
+        cv2.createTrackbar("Yellow Upper V2", "Trackbars", self.yellow_upper_2[2], 255, self.nothing)
 
         # 흰색 HSV 범위 트랙바
-        cv2.createTrackbar("White Lower H", "Trackbars", self.lower_white[0], 180, self.nothing)
-        cv2.createTrackbar("White Lower S", "Trackbars", self.lower_white[1], 255, self.nothing)
-        cv2.createTrackbar("White Lower V", "Trackbars", self.lower_white[2], 255, self.nothing)
-        cv2.createTrackbar("White Upper H", "Trackbars", self.upper_white[0], 180, self.nothing)
-        cv2.createTrackbar("White Upper S", "Trackbars", self.upper_white[1], 255, self.nothing)
-        cv2.createTrackbar("White Upper V", "Trackbars", self.upper_white[2], 255, self.nothing)
+        cv2.createTrackbar("White Lower H1", "Trackbars", self.white_lower_bound1[0], 180, self.nothing)
+        cv2.createTrackbar("White Lower S1", "Trackbars", self.white_lower_bound1[1], 255, self.nothing)
+        cv2.createTrackbar("White Lower V1", "Trackbars", self.white_lower_bound1[2], 255, self.nothing)
+        cv2.createTrackbar("White Upper H1", "Trackbars", self.white_upper_bound1[0], 180, self.nothing)
+        cv2.createTrackbar("White Upper S1", "Trackbars", self.white_upper_bound1[1], 255, self.nothing)
+        cv2.createTrackbar("White Upper V1", "Trackbars", self.white_upper_bound1[2], 255, self.nothing)
+
+        cv2.createTrackbar("White Lower H2", "Trackbars", self.white_lower_bound2[0], 180, self.nothing)
+        cv2.createTrackbar("White Lower S2", "Trackbars", self.white_lower_bound2[1], 255, self.nothing)
+        cv2.createTrackbar("White Lower V2", "Trackbars", self.white_lower_bound2[2], 255, self.nothing)
+        cv2.createTrackbar("White Upper H2", "Trackbars", self.white_upper_bound2[0], 180, self.nothing)
+        cv2.createTrackbar("White Upper S2", "Trackbars", self.white_upper_bound2[1], 255, self.nothing)
+        cv2.createTrackbar("White Upper V2", "Trackbars", self.white_upper_bound2[2], 255, self.nothing)
 
     def read_trackbar_values(self):
-        self.lower_yellow[0] = cv2.getTrackbarPos("Yellow Lower H", "Trackbars")
-        self.lower_yellow[1] = cv2.getTrackbarPos("Yellow Lower S", "Trackbars")
-        self.lower_yellow[2] = cv2.getTrackbarPos("Yellow Lower V", "Trackbars")
-        self.upper_yellow[0] = cv2.getTrackbarPos("Yellow Upper H", "Trackbars")
-        self.upper_yellow[1] = cv2.getTrackbarPos("Yellow Upper S", "Trackbars")
-        self.upper_yellow[2] = cv2.getTrackbarPos("Yellow Upper V", "Trackbars")
+        self.yellow_lower_1[0] = cv2.getTrackbarPos("Yellow Lower H1", "Trackbars")
+        self.yellow_lower_1[1] = cv2.getTrackbarPos("Yellow Lower S1", "Trackbars")
+        self.yellow_lower_1[2] = cv2.getTrackbarPos("Yellow Lower V1", "Trackbars")
+        self.yellow_upper_1[0] = cv2.getTrackbarPos("Yellow Upper H1", "Trackbars")
+        self.yellow_upper_1[1] = cv2.getTrackbarPos("Yellow Upper S1", "Trackbars")
+        self.yellow_upper_1[2] = cv2.getTrackbarPos("Yellow Upper V1", "Trackbars")
 
-        self.lower_white[0] = cv2.getTrackbarPos("White Lower H", "Trackbars")
-        self.lower_white[1] = cv2.getTrackbarPos("White Lower S", "Trackbars")
-        self.lower_white[2] = cv2.getTrackbarPos("White Lower V", "Trackbars")
-        self.upper_white[0] = cv2.getTrackbarPos("White Upper H", "Trackbars")
-        self.upper_white[1] = cv2.getTrackbarPos("White Upper S", "Trackbars")
-        self.upper_white[2] = cv2.getTrackbarPos("White Upper V", "Trackbars")
+        self.yellow_lower_2[0] = cv2.getTrackbarPos("Yellow Lower H2", "Trackbars")
+        self.yellow_lower_2[1] = cv2.getTrackbarPos("Yellow Lower S2", "Trackbars")
+        self.yellow_lower_2[2] = cv2.getTrackbarPos("Yellow Lower V2", "Trackbars")
+        self.yellow_upper_2[0] = cv2.getTrackbarPos("Yellow Upper H2", "Trackbars")
+        self.yellow_upper_2[1] = cv2.getTrackbarPos("Yellow Upper S2", "Trackbars")
+        self.yellow_upper_2[2] = cv2.getTrackbarPos("Yellow Upper V2", "Trackbars")
+
+        self.white_lower_bound1[0] = cv2.getTrackbarPos("White Lower H1", "Trackbars")
+        self.white_lower_bound1[1] = cv2.getTrackbarPos("White Lower S1", "Trackbars")
+        self.white_lower_bound1[2] = cv2.getTrackbarPos("White Lower V1", "Trackbars")
+        self.white_upper_bound1[0] = cv2.getTrackbarPos("White Upper H1", "Trackbars")
+        self.white_upper_bound1[1] = cv2.getTrackbarPos("White Upper S1", "Trackbars")
+        self.white_upper_bound1[2] = cv2.getTrackbarPos("White Upper V1", "Trackbars")
+
+        self.white_lower_bound2[0] = cv2.getTrackbarPos("White Lower H2", "Trackbars")
+        self.white_lower_bound2[1] = cv2.getTrackbarPos("White Lower S2", "Trackbars")
+        self.white_lower_bound2[2] = cv2.getTrackbarPos("White Lower V2", "Trackbars")
+        self.white_upper_bound2[0] = cv2.getTrackbarPos("White Upper H2", "Trackbars")
+        self.white_upper_bound2[1] = cv2.getTrackbarPos("White Upper S2", "Trackbars")
+        self.white_upper_bound2[2] = cv2.getTrackbarPos("White Upper V2", "Trackbars")
 
     def nothing(self, x):
         pass
