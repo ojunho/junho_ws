@@ -108,7 +108,7 @@ class SlideWindow:
         good_right_inds = ((nonzerox >= win_r_w_l) & (nonzeroy <= win_h2) & (nonzeroy > win_h1) & (nonzerox <= win_r_w_r)).nonzero()[0]
 
         # left line exist, lefty current init
-        y_current = height - 1
+        y_current = None
         x_current = None
 
         # check the minpix before left start line
@@ -121,14 +121,14 @@ class SlideWindow:
             # self.current_line = "LEFT"
             line_flag = 1
             x_current = int(np.mean(nonzerox[good_left_inds]))
-            # y_current = int(np.mean(nonzeroy[good_left_inds]))
+            y_current = int(np.mean(nonzeroy[good_left_inds]))
     
         elif len(good_left_inds) < len(good_right_inds):
  
             # self.current_line = "RIGHT"
             line_flag = 2
             x_current = int(np.mean(nonzerox[good_right_inds]))
-            # y_current = int(np.mean(nonzeroy[good_right_inds]))
+            y_current = int(np.mean(nonzeroy[good_right_inds]))
             
         else:
             # print("Cant SEE!!!!")
